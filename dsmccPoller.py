@@ -11,6 +11,7 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 #import hexdump
 import pkgutil
+import re
 
 applicationVersionNumber = "1.0.0"
 version_count=1
@@ -238,12 +239,28 @@ def processFile(input_file, interval, count, pid):
     Returns: 
     None
     """
-    #assuming a bit rate of 6000000
-    #byte rate of 750000
-    #packet rate of 3989
-    #packet rate every ms of 4
-    #Calculate null packets
-    nullPacketsBetween = 4*interval
+    #get that bitrate
+    # Run the tsbitrate command and capture the output
+    output = subprocess.check_output(['tsbitrate', input_file], text=True)
+
+    # Use a regular expression to extract the bitrate value
+    bitrate_match = re.search(r'TS bitrate: ([0-9,]+) b/s', output)
+    
+    if bitrate_match:
+        bitrate_str = bitrate_match.group(1)
+        # Remove commas and convert to an integer
+        bitrate = int(bitrate_str.replace(',', ''))
+        #print(bitrate)
+    else:
+        print("Bitrate not found in the output.")
+        return None
+    
+    byteRate = bitrate/8
+    packetRate = byteRate/188
+    packetRateMs = int(packetRate//1000)
+    #print(packetRateMs)
+    
+    nullPacketsBetween = packetRateMs*interval
     version_count = 1
     cont_count = 1
     with open(input_file, 'wb') as file:
